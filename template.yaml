@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  fromagerie-virtuelle-register
+
+  Sample SAM Template for fromagerie-virtuelle-register
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+
+Resources:
+  FromagerieVirtuelleRegisterFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: fromagerie_virtuelle_register_function
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      MemorySize: 256
+      Timeout: 120
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /register
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+              Resource:
+                - '*'
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+                - secretsmanager:DescribeSecret
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - dynamodb:*
+              Resource: !GetAtt GameTable.Arn
+            - Effect: Allow
+              Action:
+                - events:PutEvents
+              Resource: !GetAtt GameEventBus.Arn
+            - Effect: Allow
+              Action:
+                - 'kms:Decrypt'
+              Resource: !GetAtt KMSKey.Arn
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref GameEventBus
+          GAME_TABLE_NAME: !Ref GameTable
+
+  GameEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub ${AWS::StackName}-EventBus
+
+  GameTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-FromagerieVirtuelleTable
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+        - AttributeName: GSI2PK
+          AttributeType: S
+        - AttributeName: GSI2SK
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GSI2
+          KeySchema:
+            - AttributeName: GSI2PK
+              KeyType: HASH
+            - AttributeName: GSI2SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !Ref KMSKey
+
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS CMK
+      KeyPolicy:
+        Version: '2012-10-17'
+        Id: kms-key-policy
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:user/franck.cussac@hymaia.com
+            Action:
+              - 'kms:*'
+            Resource: '*'
+          - Sid: Allow use of the key for specific services in this account
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey*'
+              - 'kms:DescribeKey'
+              - 'kms:CreateGrant'
+            Resource: '*'
+            Condition:
+              StringEquals:
+                kms:CallerAccount: !Ref AWS::AccountId
+                kms:ViaService:
+                  - !Sub s3.${AWS::Region}.amazonaws.com
+                  - !Sub dynamodb.${AWS::Region}.amazonaws.com
+                  - !Sub kinesis.${AWS::Region}.amazonaws.com
+                  - !Sub secretsmanager.${AWS::Region}.amazonaws.com
+                  - !Sub sqs.${AWS::Region}.amazonaws.com
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  FromagerieVirtuelleRegisterFunction:
+    Description: "Fromagerie virtuelle register Lambda Function ARN"
+    Value: !GetAtt FromagerieVirtuelleRegisterFunction.Arn
+  FromagerieVirtuelleRegisterFunctionIamRole:
+    Description: "Implicit IAM Role created for Fromagerie virtuelle register function"
+    Value: !GetAtt FromagerieVirtuelleRegisterFunctionRole.Arn
