@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  fromagerie-virtuelle-register
+  fromagerie-virtuelle-api
 
-  Sample SAM Template for fromagerie-virtuelle-register
+  Sample SAM Template for fromagerie-virtuelle-api
 
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
@@ -151,6 +151,11 @@ Resources:
                   - !Sub kinesis.${AWS::Region}.amazonaws.com
                   - !Sub secretsmanager.${AWS::Region}.amazonaws.com
                   - !Sub sqs.${AWS::Region}.amazonaws.com
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-datalake
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function

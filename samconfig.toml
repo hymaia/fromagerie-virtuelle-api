@@ -2,7 +2,7 @@ version = 0.1
 [default]
 [default.deploy]
 [default.deploy.parameters]
-stack_name = "fromagerie-virtuelle-register"
+stack_name = "fromagerie-virtuelle"
 s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-dlh5angpgti9"
 s3_prefix = "fromagerie-virtuelle-register"
 region = "eu-west-1"
