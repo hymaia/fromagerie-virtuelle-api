@@ -122,6 +122,13 @@ Resources:
             Action:
               - 'kms:*'
             Resource: '*'
+          - Sid: Allow cicd access to the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:user/github-action
+            Action:
+              - 'kms:*'
+            Resource: '*'
           - Sid: Allow use of the key for specific services in this account
             Effect: Allow
             Principal:
