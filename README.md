@@ -22,4 +22,4 @@ sam deploy
 
 ## CI/CD
 
-À faire avec Github Actions
+À chaque commit github actions déploie automatiquement la sam app sur le compte AWS de Franck Cussac.

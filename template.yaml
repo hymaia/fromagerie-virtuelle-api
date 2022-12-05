@@ -37,11 +37,6 @@ Resources:
                 - '*'
             - Effect: Allow
               Action:
-                - secretsmanager:GetSecretValue
-                - secretsmanager:DescribeSecret
-              Resource: '*'
-            - Effect: Allow
-              Action:
                 - dynamodb:*
               Resource: !GetAtt GameTable.Arn
             - Effect: Allow
@@ -56,6 +51,46 @@ Resources:
         Variables:
           EVENT_BUS_NAME: !Ref GameEventBus
           GAME_TABLE_NAME: !Ref GameTable
+
+  FromagerieVirtuelleGetYearDataFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: fromagerie_virtuelle_get_data_function
+      Handler: app.get_last_year_data
+      Runtime: python3.8
+      MemorySize: 256
+      Timeout: 900
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /data
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+              Resource:
+                - '*'
+            - Effect: Allow
+              Action:
+                - events:PutEvents
+              Resource: !GetAtt GameEventBus.Arn
+            - Effect: Allow
+              Action:
+                - 'kms:Decrypt'
+              Resource: !GetAtt KMSKey.Arn
+            - Effect: Allow
+              Action:
+                - 's3:*'
+              Resource: !GetAtt S3Bucket.Arn
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref S3Bucket
 
   GameEventBus:
     Type: AWS::Events::EventBus
@@ -156,6 +191,11 @@ Resources:
     DeletionPolicy: Retain
     Properties:
       BucketName: !Sub ${AWS::StackName}-datalake
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'aws:kms'
+              KMSMasterKeyID: !GetAtt KMSKey.Arn
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
