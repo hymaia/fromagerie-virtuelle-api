@@ -92,6 +92,61 @@ Resources:
         Variables:
           BUCKET_NAME: !Ref S3Bucket
 
+  FromagerieVirtuelleSendDataFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: fromagerie_virtuelle_send_data_function
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      MemorySize: 256
+      Timeout: 900
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /answer
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+              Resource:
+                - '*'
+            - Effect: Allow
+              Action:
+                - logs:*
+              Resource:
+                - '*'
+            - Effect: Allow
+              Action:
+                - dynamodb:*
+              Resource:
+                - !GetAtt GameTable.Arn
+                - !Join
+                  - "/"
+                  - - !GetAtt GameTable.Arn
+                    - "*"
+            - Effect: Allow
+              Action:
+                - events:PutEvents
+              Resource: !GetAtt GameEventBus.Arn
+            - Effect: Allow
+              Action:
+                - 'kms:Decrypt'
+              Resource: !GetAtt KMSKey.Arn
+            - Effect: Allow
+              Action:
+                - 's3:*'
+              Resource: !GetAtt S3Bucket.Arn
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref S3Bucket
+          GAME_TABLE_NAME: !Ref GameTable
+
   GameEventBus:
     Type: AWS::Events::EventBus
     Properties:
@@ -191,11 +246,6 @@ Resources:
     DeletionPolicy: Retain
     Properties:
       BucketName: !Sub ${AWS::StackName}-datalake
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: 'aws:kms'
-              KMSMasterKeyID: !GetAtt KMSKey.Arn
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function

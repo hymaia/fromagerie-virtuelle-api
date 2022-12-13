@@ -16,11 +16,11 @@ BUCKET_NAME = os.environ["BUCKET_NAME"]
 def get_last_year_data(event, context):
     presign_url = s3.generate_presigned_url('get_object',
                                             Params={'Bucket': BUCKET_NAME,
-                                                    'Key': 'test.txt',
-                                                    'ResponseContentType': 'application/txt'})
+                                                    'Key': 'test.json',
+                                                    'ResponseContentType': 'application/json'})
 
     response = {
-        'statusCode': 200,
+        'statusCode': 308,
         'headers': {
             'Location': presign_url,
         },
