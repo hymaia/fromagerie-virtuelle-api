@@ -14,8 +14,28 @@ BUCKET_NAME = os.environ["PLAYERS_ANSWERS_BUCKET_NAME"]
 
 def lambda_handler(event, context):
     body = json.loads(event["body"])
-    player_secret_key = body["secret_key"]
-    data = json.loads(body["data"])
+
+    try:
+        player_secret_key = body["secret_key"]
+    except KeyError as e:
+        logging.error(e)
+        return {
+            "statusCode": 400,
+            "body": json.dumps({
+                "error": f"secret_key is missing from body.",
+            }),
+        }
+
+    try:
+        data = body["data"]
+    except KeyError as e:
+        logging.error(e)
+        return {
+            "statusCode": 400,
+            "body": json.dumps({
+                "error": f"data is missing from body : {event['body']}",
+            }),
+        }
 
     if not is_user_exist(player_secret_key):
         return {
@@ -26,14 +46,14 @@ def lambda_handler(event, context):
         }
 
     s3.put_object(Bucket=BUCKET_NAME,
-                  Key="answers",
-                  Body=json.dumps(data),)
+                  Key=f"answers/player={player_secret_key}/data.json",
+                  Body=data,)
 
     return {
         "statusCode": 200,
         "body": json.dumps({
             "message": "Bien reçu !",
-            "data": json.dumps(data),
+            "data": data,
         }),
     }
 
