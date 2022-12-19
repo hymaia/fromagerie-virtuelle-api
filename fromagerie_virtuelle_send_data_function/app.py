@@ -6,13 +6,16 @@ import logging
 logging.basicConfig()
 
 dynamodb = boto3.client('dynamodb')
+s3 = boto3.client('s3')
 
 TABLE_NAME = os.environ["GAME_TABLE_NAME"]
+BUCKET_NAME = os.environ["PLAYERS_ANSWERS_BUCKET_NAME"]
+
 
 def lambda_handler(event, context):
     body = json.loads(event["body"])
     player_secret_key = body["secret_key"]
-    data = body["data"]
+    data = json.loads(body["data"])
 
     if not is_user_exist(player_secret_key):
         return {
@@ -22,13 +25,15 @@ def lambda_handler(event, context):
             }),
         }
 
-    for elem in json.loads(data):
-        print(elem)
+    s3.put_object(Bucket=BUCKET_NAME,
+                  Key="answers",
+                  Body=json.dumps(data),)
 
     return {
         "statusCode": 200,
         "body": json.dumps({
             "message": "Bien reçu !",
+            "data": json.dumps(data),
         }),
     }
 
@@ -43,7 +48,4 @@ def is_user_exist(secret_key):
         },
         KeyConditionExpression='(GSI1PK = :pk) AND (GSI1SK = :sk)',
     )
-    print(items)
     return 'Items' in items
-
-

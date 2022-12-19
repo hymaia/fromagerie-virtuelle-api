@@ -144,7 +144,7 @@ Resources:
               Resource: !GetAtt S3Bucket.Arn
       Environment:
         Variables:
-          BUCKET_NAME: !Ref S3Bucket
+          PLAYERS_ANSWERS_BUCKET_NAME: !Ref S3Bucket
           GAME_TABLE_NAME: !Ref GameTable
 
   GameEventBus:
