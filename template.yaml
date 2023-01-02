@@ -10,6 +10,11 @@ Globals:
   Function:
     Timeout: 3
 
+Parameters:
+  CognitoUserEmail:
+    Description: Email address of the created user
+    Type: String
+
 Resources:
   FromagerieVirtuelleRegisterFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
@@ -241,11 +246,49 @@ Resources:
                   - !Sub kinesis.${AWS::Region}.amazonaws.com
                   - !Sub secretsmanager.${AWS::Region}.amazonaws.com
                   - !Sub sqs.${AWS::Region}.amazonaws.com
+  
   S3Bucket:
     Type: 'AWS::S3::Bucket'
     DeletionPolicy: Retain
     Properties:
       BucketName: !Sub ${AWS::StackName}-datalake
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: FromagerieVirtuelleUserPool
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      AccountRecoverySetting:
+        RecoveryMechanisms: 
+          - Name: verified_email
+            Priority: 1
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+      Schema:
+        - AttributeDataType: String
+          Name: name
+          Required: false
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  UserPoolUser:
+    Type: AWS::Cognito::UserPoolUser
+    Properties:
+      DesiredDeliveryMediums:
+        - EMAIL
+      Username: !Ref CognitoUserEmail
+      UserPoolId: !Ref UserPool
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
@@ -257,3 +300,9 @@ Outputs:
   FromagerieVirtuelleRegisterFunctionIamRole:
     Description: "Implicit IAM Role created for Fromagerie virtuelle register function"
     Value: !GetAtt FromagerieVirtuelleRegisterFunctionRole.Arn
+  UserPoolId:
+    Description: "ID of the Cognito User Pool"
+    Value: !Ref UserPool
+  CognitoClientId:
+    Description: "ID of the Cognito User Pool Client"
+    Value: !Ref UserPoolClient
