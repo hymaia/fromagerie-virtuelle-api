@@ -14,6 +14,10 @@ Parameters:
   CognitoUserEmail:
     Description: Email address of the created user
     Type: String
+  KMSAdminAccountId:
+    Default: franck.cussac@hymaia.com
+    Description: IAM user entitled to be admin of the KMS Key
+    Type: String
 
 Resources:
   FromagerieVirtuelleRegisterFunction:
@@ -71,6 +75,9 @@ Resources:
           Properties:
             Method: get
             Path: /data
+            RestApiId: !Ref FromagerieVirtuelleApi
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - AWSLambdaExecute
         - Version: '2012-10-17'
@@ -111,6 +118,9 @@ Resources:
           Properties:
             Method: post
             Path: /answer
+            RestApiId: !Ref FromagerieVirtuelleApi
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - AWSLambdaExecute
         - Version: '2012-10-17'
@@ -213,7 +223,7 @@ Resources:
           - Sid: Allow administration of the key
             Effect: Allow
             Principal:
-              AWS: !Sub arn:aws:iam::${AWS::AccountId}:user/franck.cussac@hymaia.com
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:user/${KMSAdminAccountId}
             Action:
               - 'kms:*'
             Resource: '*'
@@ -289,6 +299,18 @@ Resources:
         - EMAIL
       Username: !Ref CognitoUserEmail
       UserPoolId: !Ref UserPool
+  
+  FromagerieVirtuelleApi:
+    DependsOn: UserPool
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: FromagerieVirtuelleApi
+      StageName: "dev"
+      Cors: "'*'"
+      Auth:
+        Authorizers:
+            CognitoAuthorizer:
+              UserPoolArn: !GetAtt "UserPool.Arn"
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
@@ -306,3 +328,10 @@ Outputs:
   CognitoClientId:
     Description: "ID of the Cognito User Pool Client"
     Value: !Ref UserPoolClient
+  FromagerieVirtuelleGetYearDataApi:
+    Description: "API Gateway endpoint URL for GET data"
+    Value: !Sub "https://${FromagerieVirtuelleApi}.execute-api.${AWS::Region}.amazonaws.com/dev/data/"
+  FromagerieVirtuelleSendDataApi:
+    Description: "API Gateway endpoint URL for POST answers"
+    Value: !Sub "https://${FromagerieVirtuelleApi}.execute-api.${AWS::Region}.amazonaws.com/dev/answer/"
+ 
