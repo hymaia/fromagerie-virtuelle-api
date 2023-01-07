@@ -20,47 +20,6 @@ Parameters:
     Type: String
 
 Resources:
-  FromagerieVirtuelleRegisterFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
-    Properties:
-      CodeUri: fromagerie_virtuelle_register_function
-      Handler: app.lambda_handler
-      Runtime: python3.8
-      MemorySize: 256
-      Timeout: 120
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            Method: post
-            Path: /register
-      Policies:
-        - AWSLambdaExecute
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - xray:PutTraceSegments
-                - xray:PutTelemetryRecords
-              Resource:
-                - '*'
-            - Effect: Allow
-              Action:
-                - dynamodb:*
-              Resource: !GetAtt GameTable.Arn
-            - Effect: Allow
-              Action:
-                - events:PutEvents
-              Resource: !GetAtt GameEventBus.Arn
-            - Effect: Allow
-              Action:
-                - 'kms:Decrypt'
-              Resource: !GetAtt KMSKey.Arn
-      Environment:
-        Variables:
-          EVENT_BUS_NAME: !Ref GameEventBus
-          GAME_TABLE_NAME: !Ref GameTable
-
   FromagerieVirtuelleGetYearDataFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -313,15 +272,6 @@ Resources:
               UserPoolArn: !GetAtt "UserPool.Arn"
 
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  FromagerieVirtuelleRegisterFunction:
-    Description: "Fromagerie virtuelle register Lambda Function ARN"
-    Value: !GetAtt FromagerieVirtuelleRegisterFunction.Arn
-  FromagerieVirtuelleRegisterFunctionIamRole:
-    Description: "Implicit IAM Role created for Fromagerie virtuelle register function"
-    Value: !GetAtt FromagerieVirtuelleRegisterFunctionRole.Arn
   UserPoolId:
     Description: "ID of the Cognito User Pool"
     Value: !Ref UserPool
