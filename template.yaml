@@ -10,48 +10,16 @@ Globals:
   Function:
     Timeout: 3
 
-Resources:
-  FromagerieVirtuelleRegisterFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
-    Properties:
-      CodeUri: fromagerie_virtuelle_register_function
-      Handler: app.lambda_handler
-      Runtime: python3.8
-      MemorySize: 256
-      Timeout: 120
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            Method: post
-            Path: /register
-      Policies:
-        - AWSLambdaExecute
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - xray:PutTraceSegments
-                - xray:PutTelemetryRecords
-              Resource:
-                - '*'
-            - Effect: Allow
-              Action:
-                - dynamodb:*
-              Resource: !GetAtt GameTable.Arn
-            - Effect: Allow
-              Action:
-                - events:PutEvents
-              Resource: !GetAtt GameEventBus.Arn
-            - Effect: Allow
-              Action:
-                - 'kms:Decrypt'
-              Resource: !GetAtt KMSKey.Arn
-      Environment:
-        Variables:
-          EVENT_BUS_NAME: !Ref GameEventBus
-          GAME_TABLE_NAME: !Ref GameTable
+Parameters:
+  CognitoUserEmail:
+    Description: Email address of the created user
+    Type: String
+  KMSAdminAccountId:
+    Default: franck.cussac@hymaia.com
+    Description: IAM user entitled to be admin of the KMS Key
+    Type: String
 
+Resources:
   FromagerieVirtuelleGetYearDataFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -66,6 +34,9 @@ Resources:
           Properties:
             Method: get
             Path: /data
+            RestApiId: !Ref FromagerieVirtuelleApi
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - AWSLambdaExecute
         - Version: '2012-10-17'
@@ -106,6 +77,9 @@ Resources:
           Properties:
             Method: post
             Path: /answer
+            RestApiId: !Ref FromagerieVirtuelleApi
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - AWSLambdaExecute
         - Version: '2012-10-17'
@@ -208,7 +182,7 @@ Resources:
           - Sid: Allow administration of the key
             Effect: Allow
             Principal:
-              AWS: !Sub arn:aws:iam::${AWS::AccountId}:user/franck.cussac@hymaia.com
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:user/${KMSAdminAccountId}
             Action:
               - 'kms:*'
             Resource: '*'
@@ -241,19 +215,73 @@ Resources:
                   - !Sub kinesis.${AWS::Region}.amazonaws.com
                   - !Sub secretsmanager.${AWS::Region}.amazonaws.com
                   - !Sub sqs.${AWS::Region}.amazonaws.com
+  
   S3Bucket:
     Type: 'AWS::S3::Bucket'
     DeletionPolicy: Retain
     Properties:
       BucketName: !Sub ${AWS::StackName}-datalake
 
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: FromagerieVirtuelleUserPool
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      AccountRecoverySetting:
+        RecoveryMechanisms: 
+          - Name: verified_email
+            Priority: 1
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+      Schema:
+        - AttributeDataType: String
+          Name: name
+          Required: false
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  UserPoolUser:
+    Type: AWS::Cognito::UserPoolUser
+    Properties:
+      DesiredDeliveryMediums:
+        - EMAIL
+      Username: !Ref CognitoUserEmail
+      UserPoolId: !Ref UserPool
+  
+  FromagerieVirtuelleApi:
+    DependsOn: UserPool
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: FromagerieVirtuelleApi
+      StageName: "dev"
+      Cors: "'*'"
+      Auth:
+        Authorizers:
+            CognitoAuthorizer:
+              UserPoolArn: !GetAtt "UserPool.Arn"
+
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  FromagerieVirtuelleRegisterFunction:
-    Description: "Fromagerie virtuelle register Lambda Function ARN"
-    Value: !GetAtt FromagerieVirtuelleRegisterFunction.Arn
-  FromagerieVirtuelleRegisterFunctionIamRole:
-    Description: "Implicit IAM Role created for Fromagerie virtuelle register function"
-    Value: !GetAtt FromagerieVirtuelleRegisterFunctionRole.Arn
+  UserPoolId:
+    Description: "ID of the Cognito User Pool"
+    Value: !Ref UserPool
+  CognitoClientId:
+    Description: "ID of the Cognito User Pool Client"
+    Value: !Ref UserPoolClient
+  FromagerieVirtuelleGetYearDataApi:
+    Description: "API Gateway endpoint URL for GET data"
+    Value: !Sub "https://${FromagerieVirtuelleApi}.execute-api.${AWS::Region}.amazonaws.com/dev/data/"
+  FromagerieVirtuelleSendDataApi:
+    Description: "API Gateway endpoint URL for POST answers"
+    Value: !Sub "https://${FromagerieVirtuelleApi}.execute-api.${AWS::Region}.amazonaws.com/dev/answer/"
+ 
