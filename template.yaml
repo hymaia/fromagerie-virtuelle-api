@@ -340,9 +340,24 @@ Outputs:
     Description: "API Gateway endpoint URL for GET data"
     Value: !Sub "https://${FromagerieVirtuelleApi}.execute-api.${AWS::Region}.amazonaws.com/dev/data/"
     Export:
-      Name: !Sub '${AWS::StackName}-FromagerieVirtuelleGetYearDataApi'
+      Name: !Sub '${AWS::StackName}-GetYearDataApi'
   FromagerieVirtuelleSendDataApi:
     Description: "API Gateway endpoint URL for POST answers"
     Value: !Sub "https://${FromagerieVirtuelleApi}.execute-api.${AWS::Region}.amazonaws.com/dev/answer/"
     Export:
-      Name: !Sub '${AWS::StackName}-FromagerieVirtuelleSendDataApi'
+      Name: !Sub '${AWS::StackName}-SendDataApi'
+  FromagerieVirtuelleS3Bucket:
+    Description: "Datalake"
+    Value: !Ref S3Bucket
+    Export:
+      Name: !Sub '${AWS::StackName}-S3Bucket'
+  FromagerieVirtuelleDynamoDBArn:
+    Description: "DynamoDB ARN for score"
+    Value: !GetAtt GameTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DynamoDBArn'
+  FromagerieVirtuelleDynamoDBName:
+    Description: "DynamoDB name for score"
+    Value: !Ref GameTable
+    Export:
+      Name: !Sub '${AWS::StackName}-DynamoDBName'
