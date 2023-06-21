@@ -1,184 +1,415 @@
-AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: >
-  fromagerie-virtuelle-api
-
-  Sample SAM Template for fromagerie-virtuelle-api
-
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
-Globals:
-  Function:
-    Timeout: 3
-
-Parameters:
-  CognitoUserEmail:
-    Default: franck.cussac@hymaia.com
-    Description: Email address of the created user
-    Type: String
-  KMSAdminAccountId:
-    Default: franck.cussac@hymaia.com
-    Description: IAM user entitled to be admin of the KMS Key
-    Type: String
 
 Resources:
-  FromagerieVirtuelleGetYearDataFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+  Api:
+    Type: AWS::Serverless::Api
     Properties:
-      CodeUri: fromagerie_virtuelle_get_data_function
-      Handler: app.get_last_year_data
-      Runtime: python3.8
-      MemorySize: 256
-      Timeout: 900
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            Method: get
-            Path: /data
-            RestApiId: !Ref FromagerieVirtuelleApi
-            Auth:
-              Authorizer: CognitoAuthorizer
+      Name: !Sub
+        - ${ResourceName} From Stack ${AWS::StackName}
+        - ResourceName: Api
+      StageName: Prod
+      DefinitionBody:
+        openapi: '3.0'
+        info: {}
+        paths:
+          /signin:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SignIn.Arn}/invocations
+              responses: {}
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        username:
+                          type: string
+                        password:
+                          type: string
+                          minLength: 8
+                      required:
+                        - username
+                        - email
+                        - password
+          /signin/refresh:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RefreshToken.Arn}/invocations
+              responses: {}
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        refresh_token:
+                          type: string
+          /signup:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SignUp.Arn}/invocations
+              responses: {}
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        username:
+                          type: string
+                        email:
+                          type: string
+                          format: email
+                        password:
+                          type: string
+                          minLength: 8
+                      required:
+                        - username
+                        - email
+                        - password
+          /confirm:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Confirm.Arn}/invocations
+              responses: {}
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        username:
+                          type: string
+                        verification_code:
+                          type: string
+          /score:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Score.Arn}/invocations
+              responses: {}
+              security:
+                - MyCognitoAuthorizer:
+                    - aws.cognito.signin.user.admin
+#              à remplacer par ça quand ça fonctionnera : https://github.com/aws-amplify/amplify-js/issues/3732
+#                    - fromagerie-virtuelle/score
+          /result:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SendResult.Arn}/invocations
+              responses: {}
+              security:
+                - MyCognitoAuthorizer:
+                    - aws.cognito.signin.user.admin
+#              à remplacer par ça quand ça fonctionnera : https://github.com/aws-amplify/amplify-js/issues/3732
+#                    - fromagerie-virtuelle/result
+      Auth:
+        Authorizers:
+          MyCognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+      EndpointConfiguration: REGIONAL
+      TracingEnabled: true
+      AccessLogSetting:
+        DestinationArn: !GetAtt AccessLogGroup.Arn
+        Format: "{\"requestId\":\"$context.requestId\",\"ip\":\"$context.identity.sourceIp\",\"user\":\"$context.authorizer.principalId\",\"method\":\"$context.httpMethod\",\"path\":\"$context.resourcePath\",\"status\":\"$context.status\",\"responseLength\":\"$context.responseLength\",\"responseLatency\":\"$context.responseLatency\",\"protocol\":\"$context.protocol\",\"userAgent\":\"$context.identity.userAgent\",\"requestTime\":\"$context.requestTime\",\"domainName\":\"$context.domainName\",\"apiId\":\"$context.apiId\"}"
+
+  AccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/apigateway/${AWS::StackName}
+      RetentionInDays: 3
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${AWS::StackName}-UserPool
+      AutoVerifiedAttributes:
+        - email
       Policies:
-        - AWSLambdaExecute
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - xray:PutTraceSegments
-                - xray:PutTelemetryRecords
-              Resource:
-                - '*'
-            - Effect: Allow
-              Action:
-                - events:PutEvents
-              Resource: !GetAtt GameEventBus.Arn
-            - Effect: Allow
-              Action:
-                - 'kms:Decrypt'
-              Resource: !GetAtt KMSKey.Arn
-            - Effect: Allow
-              Action:
-                - 's3:*'
-              Resource: !GetAtt S3Bucket.Arn
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          TemporaryPasswordValidityDays: 7
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+      AllowedOAuthScopes: # pour le moment ça ne fonctionne pas : https://github.com/aws-amplify/amplify-js/issues/3732
+        - fromagerie-virtuelle/score
+        - fromagerie-virtuelle/result
+
+  MyResourceServer:
+    Type: AWS::Cognito::UserPoolResourceServer
+    Properties:
+      UserPoolId: !Ref UserPool
+      Identifier: fromagerie-virtuelle
+      Name: fromagerie-virtuelle
+      Scopes: # pour le moment ça ne fonctionne pas : https://github.com/aws-amplify/amplify-js/issues/3732
+        - ScopeName: score
+          ScopeDescription: reach score endpoint
+        - ScopeName: result
+          ScopeDescription: reach result endpoint
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: fromagerie-virtuelle-datalake
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: alias/aws/s3
+
+  S3BucketBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Id: RequireEncryptionInTransit
+        Version: '2012-10-17'
+        Statement:
+          - Principal: '*'
+            Action: '*'
+            Effect: Deny
+            Resource:
+              - !GetAtt S3Bucket.Arn
+              - !Sub ${S3Bucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  SendResult:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: !Sub
+        - Stack ${AWS::StackName} Function ${ResourceName}
+        - ResourceName: SendResult
+      CodeUri: fromagerie_virtuelle_send_result_function
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
       Environment:
         Variables:
           BUCKET_NAME: !Ref S3Bucket
-
-  FromagerieVirtuelleSendDataFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
-    Properties:
-      CodeUri: fromagerie_virtuelle_send_data_function
-      Handler: app.lambda_handler
-      Runtime: python3.8
-      MemorySize: 256
-      Timeout: 900
+          BUCKET_ARN: !GetAtt S3Bucket.Arn
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:GetObjectAcl
+                - s3:GetObjectLegalHold
+                - s3:GetObjectRetention
+                - s3:GetObjectTorrent
+                - s3:GetObjectVersion
+                - s3:GetObjectVersionAcl
+                - s3:GetObjectVersionForReplication
+                - s3:GetObjectVersionTorrent
+                - s3:ListBucket
+                - s3:ListBucketMultipartUploads
+                - s3:ListBucketVersions
+                - s3:ListMultipartUploadParts
+                - s3:AbortMultipartUpload
+                - s3:DeleteObject
+                - s3:DeleteObjectVersion
+                - s3:PutObject
+                - s3:PutObjectLegalHold
+                - s3:PutObjectRetention
+                - s3:RestoreObject
+              Resource:
+                - !Sub arn:${AWS::Partition}:s3:::${S3Bucket}
+                - !Sub arn:${AWS::Partition}:s3:::${S3Bucket}/*
       Events:
-        ApiEvent:
+        ApiPOSTresult:
           Type: Api
           Properties:
-            Method: post
-            Path: /answer
-            RestApiId: !Ref FromagerieVirtuelleApi
-            Auth:
-              Authorizer: CognitoAuthorizer
-      Policies:
-        - AWSLambdaExecute
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - xray:PutTraceSegments
-                - xray:PutTelemetryRecords
-              Resource:
-                - '*'
-            - Effect: Allow
-              Action:
-                - logs:*
-              Resource:
-                - '*'
-            - Effect: Allow
-              Action:
-                - dynamodb:*
-              Resource:
-                - !GetAtt GameTable.Arn
-                - !Join
-                  - "/"
-                  - - !GetAtt GameTable.Arn
-                    - "*"
-            - Effect: Allow
-              Action:
-                - events:PutEvents
-              Resource: !GetAtt GameEventBus.Arn
-            - Effect: Allow
-              Action:
-                - 'kms:Decrypt'
-              Resource: !GetAtt KMSKey.Arn
-            - Effect: Allow
-              Action:
-                - 's3:*'
-              Resource: !GetAtt S3Bucket.Arn
+            Path: /result
+            Method: POST
+            RestApiId: !Ref Api
+
+  SendResultLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${SendResult}
+      RetentionInDays: 3
+
+  SignUp:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: !Sub
+        - Stack ${AWS::StackName} Function ${ResourceName}
+        - ResourceName: SignUp
+      CodeUri: fromagerie_virtuelle_sign_function
+      Handler: app.lambda_handler_signup
+      Runtime: python3.8
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Events:
+        ApiPOSTsignup:
+          Type: Api
+          Properties:
+            Path: /signup
+            Method: POST
+            RestApiId: !Ref Api
       Environment:
         Variables:
-          PLAYERS_ANSWERS_BUCKET_NAME: !Ref S3Bucket
-          GAME_TABLE_NAME: !Ref GameTable
+          USER_POOL_CLIENT_ID: !Ref UserPoolClient
+          USER_POOL_ID: !Ref UserPool
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminConfirmSignUp
+              Resource:
+                - !GetAtt UserPool.Arn
 
-  FromagerieVirtuelleGetScoreFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+  RefreshToken:
+    Type: AWS::Serverless::Function
     Properties:
+      Description: !Sub
+        - Stack ${AWS::StackName} Function ${ResourceName}
+        - ResourceName: RefreshToken
+      CodeUri: fromagerie_virtuelle_sign_function
+      Handler: app.lambda_handler_refresh
+      Runtime: python3.8
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Events:
+        ApiPOSTsignup:
+          Type: Api
+          Properties:
+            Path: /signin/refresh
+            Method: POST
+            RestApiId: !Ref Api
+      Environment:
+        Variables:
+          USER_POOL_CLIENT_ID: !Ref UserPoolClient
+          USER_POOL_ID: !Ref UserPool
+
+  SignIn:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: !Sub
+        - Stack ${AWS::StackName} Function ${ResourceName}
+        - ResourceName: SignIn
+      CodeUri: fromagerie_virtuelle_signin_function/
+      Handler: app.lambdaHandler
+      Runtime: nodejs18.x
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Architectures:
+        - x86_64
+      Events:
+        ApiPOSTsignup:
+          Type: Api
+          Properties:
+            Path: /signin
+            Method: POST
+            RestApiId: !Ref Api
+      Environment:
+        Variables:
+          USER_POOL_CLIENT_ID: !Ref UserPoolClient
+          USER_POOL_ID: !Ref UserPool
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints:
+          - app.ts
+
+  Confirm:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: !Sub
+        - Stack ${AWS::StackName} Function ${ResourceName}
+        - ResourceName: Confirm
+      CodeUri: fromagerie_virtuelle_sign_function
+      Handler: app.lambda_handler_confirm
+      Runtime: python3.8
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Events:
+        ApiPOSTsignup:
+          Type: Api
+          Properties:
+            Path: /confirm
+            Method: POST
+            RestApiId: !Ref Api
+      Environment:
+        Variables:
+          USER_POOL_CLIENT_ID: !Ref UserPoolClient
+          USER_POOL_ID: !Ref UserPool
+
+  SignUpLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${SignUp}
+      RetentionInDays: 3
+
+  Score:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: !Sub
+        - Stack ${AWS::StackName} Function ${ResourceName}
+        - ResourceName: Score
       CodeUri: fromagerie_virtuelle_get_score_function
       Handler: app.lambda_handler
       Runtime: python3.8
-      MemorySize: 256
-      Timeout: 900
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            Method: get
-            Path: /score
-            RestApiId: !Ref FromagerieVirtuelleApi
-            Auth:
-              Authorizer: CognitoAuthorizer
-      Policies:
-        - AWSLambdaExecute
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - xray:PutTraceSegments
-                - xray:PutTelemetryRecords
-              Resource:
-                - '*'
-            - Effect: Allow
-              Action:
-                - logs:*
-              Resource:
-                - '*'
-            - Effect: Allow
-              Action:
-                - dynamodb:*
-              Resource:
-                - !GetAtt GameTable.Arn
-                - !Join
-                  - "/"
-                  - - !GetAtt GameTable.Arn
-                    - "*"
-            - Effect: Allow
-              Action:
-                - events:PutEvents
-              Resource: !GetAtt GameEventBus.Arn
-            - Effect: Allow
-              Action:
-                - 'kms:Decrypt'
-              Resource: !GetAtt KMSKey.Arn
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
       Environment:
         Variables:
-          GAME_TABLE_NAME: !Ref GameTable
+          TABLE_NAME: !Ref GameTable
+          TABLE_ARN: !GetAtt GameTable.Arn
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref GameTable
+      Events:
+        ApiGETscore:
+          Type: Api
+          Properties:
+            Path: /score
+            Method: GET
+            RestApiId: !Ref Api
 
-  GameEventBus:
-    Type: AWS::Events::EventBus
+  ScoreLogGroup:
+    Type: AWS::Logs::LogGroup
     Properties:
-      Name: !Sub ${AWS::StackName}-EventBus
+      LogGroupName: !Sub /aws/lambda/${Score}
+      RetentionInDays: 3
 
   GameTable:
     Type: AWS::DynamoDB::Table
@@ -192,10 +423,6 @@ Resources:
         - AttributeName: GSI1PK
           AttributeType: S
         - AttributeName: GSI1SK
-          AttributeType: S
-        - AttributeName: GSI2PK
-          AttributeType: S
-        - AttributeName: GSI2SK
           AttributeType: S
       BillingMode: PAY_PER_REQUEST
       KeySchema:
@@ -212,118 +439,6 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
-        - IndexName: GSI2
-          KeySchema:
-            - AttributeName: GSI2PK
-              KeyType: HASH
-            - AttributeName: GSI2SK
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-      SSESpecification:
-        SSEEnabled: true
-        SSEType: KMS
-        KMSMasterKeyId: !Ref KMSKey
-
-  KMSKey:
-    Type: AWS::KMS::Key
-    Properties:
-      Description: KMS CMK
-      KeyPolicy:
-        Version: '2012-10-17'
-        Id: kms-key-policy
-        Statement:
-          - Sid: Allow administration of the key
-            Effect: Allow
-            Principal:
-              AWS: !Sub arn:aws:iam::${AWS::AccountId}:user/${KMSAdminAccountId}
-            Action:
-              - 'kms:*'
-            Resource: '*'
-          - Sid: Allow cicd access to the key
-            Effect: Allow
-            Principal:
-              AWS: !Sub arn:aws:iam::${AWS::AccountId}:user/github-action
-            Action:
-              - 'kms:*'
-            Resource: '*'
-          - Sid: Allow use of the key for specific services in this account
-            Effect: Allow
-            Principal:
-              AWS:
-                - !Sub arn:aws:iam::${AWS::AccountId}:root
-            Action:
-              - 'kms:Encrypt'
-              - 'kms:Decrypt'
-              - 'kms:ReEncrypt*'
-              - 'kms:GenerateDataKey*'
-              - 'kms:DescribeKey'
-              - 'kms:CreateGrant'
-            Resource: '*'
-            Condition:
-              StringEquals:
-                kms:CallerAccount: !Ref AWS::AccountId
-                kms:ViaService:
-                  - !Sub s3.${AWS::Region}.amazonaws.com
-                  - !Sub dynamodb.${AWS::Region}.amazonaws.com
-                  - !Sub kinesis.${AWS::Region}.amazonaws.com
-                  - !Sub secretsmanager.${AWS::Region}.amazonaws.com
-                  - !Sub sqs.${AWS::Region}.amazonaws.com
-  
-  S3Bucket:
-    Type: 'AWS::S3::Bucket'
-    DeletionPolicy: Retain
-    Properties:
-      BucketName: !Sub ${AWS::StackName}-datalake
-
-  UserPool:
-    Type: AWS::Cognito::UserPool
-    Properties:
-      UserPoolName: FromagerieVirtuelleUserPool
-      UsernameAttributes:
-        - email
-      AutoVerifiedAttributes:
-        - email
-      AccountRecoverySetting:
-        RecoveryMechanisms: 
-          - Name: verified_email
-            Priority: 1
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-      Schema:
-        - AttributeDataType: String
-          Name: name
-          Required: false
-
-  UserPoolClient:
-    Type: AWS::Cognito::UserPoolClient
-    Properties:
-      UserPoolId: !Ref UserPool
-      GenerateSecret: false
-      ExplicitAuthFlows:
-        - ALLOW_REFRESH_TOKEN_AUTH
-        - ALLOW_USER_SRP_AUTH
-
-  UserPoolUser:
-    Type: AWS::Cognito::UserPoolUser
-    Properties:
-      DesiredDeliveryMediums:
-        - EMAIL
-      Username: !Ref CognitoUserEmail
-      UserPoolId: !Ref UserPool
-  
-  FromagerieVirtuelleApi:
-    DependsOn: UserPool
-    Type: AWS::Serverless::Api
-    Properties:
-      Name: FromagerieVirtuelleApi
-      StageName: "dev"
-      Cors: "'*'"
-      Auth:
-        Authorizers:
-            CognitoAuthorizer:
-              UserPoolArn: !GetAtt "UserPool.Arn"
 
 Outputs:
   UserPoolId:
@@ -336,16 +451,6 @@ Outputs:
     Value: !Ref UserPoolClient
     Export:
       Name: !Sub '${AWS::StackName}-CognitoClientId'
-  FromagerieVirtuelleGetYearDataApi:
-    Description: "API Gateway endpoint URL for GET data"
-    Value: !Sub "https://${FromagerieVirtuelleApi}.execute-api.${AWS::Region}.amazonaws.com/dev/data/"
-    Export:
-      Name: !Sub '${AWS::StackName}-GetYearDataApi'
-  FromagerieVirtuelleSendDataApi:
-    Description: "API Gateway endpoint URL for POST answers"
-    Value: !Sub "https://${FromagerieVirtuelleApi}.execute-api.${AWS::Region}.amazonaws.com/dev/answer/"
-    Export:
-      Name: !Sub '${AWS::StackName}-SendDataApi'
   FromagerieVirtuelleS3Bucket:
     Description: "Datalake"
     Value: !Ref S3Bucket

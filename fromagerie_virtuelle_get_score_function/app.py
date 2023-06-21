@@ -15,9 +15,6 @@ def lambda_handler(event, context):
     top = get_top_score()
     player_score = get_player_score(user_id)
 
-    print(top)
-    print(player_score)
-
     return {
         "statusCode": 200,
         "body": json.dumps({
@@ -27,6 +24,7 @@ def lambda_handler(event, context):
         }),
     }
 
+
 def get_player_score(player_id):
     return dynamodb.get_item(
         TableName=TABLE_NAME,
@@ -35,6 +33,7 @@ def get_player_score(player_id):
             'SK': {"S": "1"},
         }
     )
+
 
 def get_top_score():
     items = dynamodb.query(
