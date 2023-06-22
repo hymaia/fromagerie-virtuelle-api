@@ -11,7 +11,7 @@ TABLE_NAME = os.environ["GAME_TABLE_NAME"]
 
 
 def lambda_handler(event, context):
-    user_id = event['requestContext']['authorizer']['claims']['sub']
+    user_id = event['requestContext']['authorizer']['claims']['user']
     top = get_top_score()
     player_score = get_player_score(user_id)
 

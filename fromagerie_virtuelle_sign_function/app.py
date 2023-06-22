@@ -2,8 +2,6 @@ import boto3
 import os
 import json
 from botocore.exceptions import ClientError
-import hashlib
-import base64
 
 userpool_id = os.environ['USER_POOL_ID']
 client_id = os.environ['USER_POOL_CLIENT_ID']
@@ -21,7 +19,7 @@ def lambda_handler_signup(event, context):
         password = body['password']
 
         # Créer un nouvel utilisateur dans Cognito
-        response = client.sign_up(
+        client.sign_up(
             ClientId=client_id,
             Username=username,
             Password=password,
@@ -30,12 +28,16 @@ def lambda_handler_signup(event, context):
                     'Name': 'email',
                     'Value': email
                 },
+                {
+                    'Name': 'name',
+                    'Value': username
+                },
             ]
         )
 
         return {
             'statusCode': 200,
-            'body': 'Ajout de l\'e-mail réussie'
+            'body': 'Ajout de l\'e-mail réussie. Un code de confirmation vous y a été envoyé.'
         }
     except ClientError as e:
         error_message = e.response['Error']['Message']

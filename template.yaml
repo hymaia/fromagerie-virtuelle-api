@@ -216,8 +216,7 @@ Resources:
       Tracing: Active
       Environment:
         Variables:
-          BUCKET_NAME: !Ref S3Bucket
-          BUCKET_ARN: !GetAtt S3Bucket.Arn
+          PLAYERS_ANSWERS_BUCKET_NAME: !Ref S3Bucket
       Policies:
         - Statement:
             - Effect: Allow
@@ -393,7 +392,6 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref GameTable
-          TABLE_ARN: !GetAtt GameTable.Arn
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref GameTable
