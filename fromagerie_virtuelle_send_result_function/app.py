@@ -39,12 +39,11 @@ def lambda_handler(event, context):
         for cheese in cheeses:
             parsed_cheese[cheese] = body["predictions"][cheese]
             parsed_cheese[cheese]["cheese"] = cheese
-            parsed_cheese[cheese]["month"] = month
             output = f"""{json.dumps(parsed_cheese[cheese], ensure_ascii=False)}
 {output}"""
 
         s3.put_object(Bucket=BUCKET_NAME,
-                      Key=f"data/answers/player={user}/data.json",
+                      Key=f"data/answers/player={user}/month={month}/data.json",
                       Body=output)
         return {
             "statusCode": 200,

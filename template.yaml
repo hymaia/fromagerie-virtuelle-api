@@ -391,7 +391,7 @@ Resources:
       Tracing: Active
       Environment:
         Variables:
-          TABLE_NAME: !Ref GameTable
+          GAME_TABLE_NAME: !Ref GameTable
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref GameTable
@@ -421,7 +421,7 @@ Resources:
         - AttributeName: GSI1PK
           AttributeType: S
         - AttributeName: GSI1SK
-          AttributeType: S
+          AttributeType: N
       BillingMode: PAY_PER_REQUEST
       KeySchema:
         - AttributeName: PK
