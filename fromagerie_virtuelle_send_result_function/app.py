@@ -19,7 +19,7 @@ def lambda_handler(event, context):
         body = json.loads(event["body"])
         user = event['requestContext']['authorizer']['claims']['username']
 
-        month = body["month"]
+        month = body['month']
 
         cheeses = [
             "roquefort",

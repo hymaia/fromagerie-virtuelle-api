@@ -12,28 +12,25 @@ TABLE_NAME = os.environ["GAME_TABLE_NAME"]
 
 deserializer = TypeDeserializer()
 
+def mapLeaderboard(score):
+    del score["PK"]
+    del score["SK"]
+    del score["GSI1PK"]
+    del score["GSI1SK"]
+    del score["month"]
+    score["rank"] = int(score["rank"])
+    score["score"] = int(score["score"])
 
 def lambda_handler(event, context):
     user_id = event['requestContext']['authorizer']['claims']['username']
     top = get_top_score()
     player_score = get_player_score(user_id)
 
-    del player_score["PK"]
-    del player_score["SK"]
-    del player_score["GSI1PK"]
-    del player_score["GSI1SK"]
-    del player_score["month"]
-    player_score["rank"] = int(player_score["rank"])
-    player_score["score"] = int(player_score["score"])
+    if "PK" in player_score:
+        mapLeaderboard(player_score)
 
     for item in top:
-        del item["PK"]
-        del item["SK"]
-        del item["GSI1PK"]
-        del item["GSI1SK"]
-        del item["month"]
-        item["rank"] = int(item["rank"])
-        item["score"] = int(item["score"])
+        mapLeaderboard(item)
 
     return {
         "statusCode": 200,
@@ -46,15 +43,19 @@ def lambda_handler(event, context):
 
 
 def get_player_score(player_id):
-    item = dynamodb.get_item(
+    res = dynamodb.get_item(
         TableName=TABLE_NAME,
         Key={
             'PK': {"S": f"PLAYER#{player_id}"},
             'SK': {"S": "1"},
         }
-    )["Item"]
-    deserialized_response = deserialize_dynamo_object(item)
-    return deserialized_response
+    )
+    if "Item" in res:
+        item = res["Item"]
+        deserialized_response = deserialize_dynamo_object(item)
+        return deserialized_response
+    else:
+        return {}
 
 
 def deserialize_dynamo_object(item):

@@ -184,6 +184,33 @@ Resources:
               SSEAlgorithm: aws:kms
               KMSMasterKeyID: alias/aws/s3
 
+  S3BucketPublic:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: fromagerie-virtuelle-datalake-public
+
+  PublicObjectPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3BucketPublic
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:ListBucket'
+            Effect: Allow
+            Resource:
+              - !GetAtt S3BucketPublic.Arn
+            Principal: '*'
+          - Action:
+              - 's3:GetObject'
+            Effect: Allow
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${S3BucketPublic}/data/commands/year=2021/*
+              - !Sub arn:${AWS::Partition}:s3:::${S3BucketPublic}/data/commands/year=2022/*
+              - !Sub arn:${AWS::Partition}:s3:::${S3BucketPublic}/data/commands/year=2023/*
+            Principal: '*'
+
   S3BucketBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:

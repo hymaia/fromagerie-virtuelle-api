@@ -28,34 +28,43 @@ sam deploy
 
 ### S'enregistrer comme joueur
 
-Pour s'enregistrer, faites un post sur le endpoint `register`. Exemple :
+```shell
+http POST https://pdpaci2ge1.execute-api.eu-west-1.amazonaws.com/Prod/signup username=<username> email=<email>
+```
+
+### S'authentifier pour jouer
 
 ```shell
-http POST https://x8jxwlic37.execute-api.eu-west-1.amazonaws.com/Prod/register mail=<mail> pseudo=<pseudo>
+http POST https://pdpaci2ge1.execute-api.eu-west-1.amazonaws.com/Prod/signin username=<username> password=<password>
+```
 
-{
-    "instructions": "Récupérez votre secret_key et gardez la précieusement sans la divulguer.",
-    "mail": "mail",
-    "pseudo": "pseudo",
-    "secret_key": "11b4a846-5ab4-484b-9f05-f9a5c48f713a"
-}
+Une fois son premier token obtenu, on peut utiliser le refresh token pour se réauthentifier à l'expiration du premier :
+```shell
+http POST https://pdpaci2ge1.execute-api.eu-west-1.amazonaws.com/Prod/signin/refresh refresh_token=<token>
 ```
 
 ### Envoyer une réponse
 
-Une réponse est un fichier json multiligne fait pour spark :
+Exemple de JSON :
+
 ```json
-{"exemple": "value"}
-{"exemple": "value"}
-{"exemple": "value"}
+{
+  "predictions": {
+    "roquefort": {"quantity_ordered":11888117},
+    "raclette": {"quantity_ordered":21436453},
+    "camembert": {"quantity_ordered":7144144},
+    "emmental": {"quantity_ordered":7140079},
+    "brie": {"quantity_ordered":19030271},
+    "parmesan": {"quantity_ordered":11903091},
+    "comté": {"quantity_ordered":11897341},
+    "mimolette": {"quantity_ordered":11902662},
+    "gouda": {"quantity_ordered":9512205},
+    "fourme de Montbrison": {"quantity_ordered":2381163}
+  },
+  "month":"1"
+}
 ```
 
-Le JSON n'est pas valide c'est pourquoi il faut l'envoyer comme texte dans un champs json de notre requête :
 ```shell
-http POST https://x8jxwlic37.execute-api.eu-west-1.amazonaws.com/Prod/answer secret_key=11b4a846-5ab4-484b-9f05-f9a5c48f713a data=@test.json
-
-{
-    "data": "{\"test\": \"test\"}\n{\"test\": \"test\"}\n\n",
-    "message": "Bien reçu !"
-}
+http -A bearer -a <token> POST https://pdpaci2ge1.execute-api.eu-west-1.amazonaws.com/Prod/result @<file>
 ```
